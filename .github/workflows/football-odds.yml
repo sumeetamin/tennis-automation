@@ -1,0 +1,46 @@
+name: Football odds (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: private-other-sports-feed
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: ${{ vars.PUBLIC_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/tennis
+          ref: main
+          path: private
+          token: ${{ secrets.TENNIS_REPO_TOKEN }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Fetch and publish football odds
+        working-directory: private
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_API_KEYS: ${{ secrets.ODDS_API_KEYS }}
+        run: |
+          if ! python -m pip install requests >/dev/null 2>&1; then echo "::error::Dependency installation failed."; exit 1; fi
+          if ! python publish_football_odds.py > .football.log 2>&1; then rm -f .football.log; echo "::error::Football odds refresh failed; output suppressed."; exit 1; fi
+          rm -f .football.log
+          python -m json.tool api/football_odds.json >/dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/football_odds.json
+          if git diff --cached --quiet; then echo "No football feed changes."; exit 0; fi
+          git commit -m 'Refresh football odds'
+          for attempt in 1 2 3 4 5; do
+            git rebase --abort >/dev/null 2>&1 || true
+            git fetch origin main
+            git rebase -X ours origin/main
+            if git push origin HEAD:main; then echo "Football odds published."; exit 0; fi
+            sleep 2
+          done
+          echo "::error::Could not publish football odds."; exit 1
