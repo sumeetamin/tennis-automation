@@ -1,0 +1,34 @@
+name: Vercel feed health
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    if: ${{ vars.PUBLIC_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check login and protected API
+        run: |
+          python - <<'PY'
+          import urllib.request, urllib.error, sys
+          base = "https://tennis-psi-ten.vercel.app"
+          request = urllib.request.Request(base + "/login", method="GET")
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  if response.status != 200: sys.exit("Login page check failed")
+          except Exception:
+              sys.exit("Login page is unavailable")
+          try:
+              urllib.request.urlopen(base + "/api/predictions", timeout=20)
+          except urllib.error.HTTPError as error:
+              if error.code != 401: sys.exit("Signed-out predictions endpoint did not return 401")
+          except Exception:
+              sys.exit("Protected predictions endpoint is unavailable")
+          else:
+              sys.exit("Predictions endpoint is not protected")
+          print("Vercel login is reachable; signed-out prediction data remains protected.")
+          PY
