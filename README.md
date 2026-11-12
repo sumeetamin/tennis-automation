@@ -24,7 +24,7 @@ Add these under **Settings → Secrets and variables → Actions → Secrets** i
 
 Optional Actions variable: `VOLLEYBALL_ODDS_BOOKMAKER`.
 
-After secrets are added, set Actions variable `PUBLIC_RUNNER_ENABLED` to `true`. Scheduled jobs are guarded until then. Start with one manual run and verify its private feed update and the signed-in Vercel page; only then disable the corresponding workflows in the private repository.
+Before enabling this repo, disable the matching scheduled workflows in the private repo to avoid duplicate runs. Add the secrets above, run one manual workflow while `PUBLIC_RUNNER_ENABLED` is unset (jobs stay safely skipped), then set Actions variable `PUBLIC_RUNNER_ENABLED` to `true` and start a manual run. Verify the private feed update and the signed-in Vercel page.
 
 ## Security
 
