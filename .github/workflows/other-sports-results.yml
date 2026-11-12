@@ -42,7 +42,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           [ "$nba" -eq 0 ] && python -m json.tool api/basketball_history.json >/dev/null && git add api/basketball_history.json
-          [ "$vb" -eq 0 ] && python -m json.tool api/volleyball_history.json >/dev/null && git add api/volleyball_history.json
+          [ "$vb" -eq 0 ] && python -m json.tool api/volleyball_history.json >/dev/null && git add -f api/volleyball_history.json
           if git diff --cached --quiet; then echo "No results changes."; exit 0; fi
           git commit -m 'Refresh other sports results'
           for attempt in 1 2 3 4 5; do
