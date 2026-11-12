@@ -1,0 +1,32 @@
+name: Football model evaluation (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: private-football-evaluation
+  cancel-in-progress: false
+jobs:
+  evaluate:
+    if: ${{ vars.PUBLIC_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/football-match-lab
+          ref: main
+          token: ${{ secrets.FOOTBALL_REPO_TOKEN }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install Football research dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Evaluate privately without public artifacts
+        env:
+          PYTHONPATH: src
+          OMP_NUM_THREADS: '2'
+        run: |
+          if ! python -u -m football_lab.cli evaluate > .football-evaluate.log 2>&1; then rm -f .football-evaluate.log; echo "::error::Football evaluation failed; private output suppressed."; exit 1; fi
+          rm -f .football-evaluate.log
+          echo "Football evaluation completed privately on the runner."
