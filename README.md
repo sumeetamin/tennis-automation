@@ -15,6 +15,8 @@ Use **Settings → Secrets and variables → Actions → Secrets**. Re-enter the
 
 - `TENNIS_REPO_TOKEN`: fine-grained PAT restricted to `sumeetamin/tennis`, Contents read/write.
 - `FOOTBALL_REPO_TOKEN`: fine-grained PAT restricted to `sumeetamin/football-match-lab`, Contents read/write.
+
+For website manual refresh buttons, the Vercel Production variables `GITHUB_WORKFLOW_TOKEN` and `FOOTBALL_WORKFLOW_TOKEN` must be fine-grained PATs restricted to `tennis-automation`, with Actions read/write. The same token may be used for both.
 - `ODDS_API_KEYS` (optional `ODDS_API_KEY`): Odds API key pool.
 - `TENNIS_RESULTS_API_KEYS` (optional `TENNIS_RESULTS_API_KEY`): tennis results API key pool.
 - `NBA_REPOS_READ_TOKEN`: read-only access to `nba-betting-data` and `nba-betting-model`.
@@ -33,7 +35,7 @@ Optional Actions variable: `VOLLEYBALL_ODDS_BOOKMAKER`. Keep `PUBLIC_RUNNER_ENAB
 4. Manually run each sports workflow once. Check the private feed updates and the signed-in Vercel pages.
 5. Keep the old scheduled workflows disabled after verification.
 
-The existing website refresh buttons still point to their old workflow locations; they need a small route/token update before those buttons trigger these new workflows. Scheduled runs in this repo do not depend on that update.
+The tennis app routes now target workflows in this repository. Update the Vercel Production tokens above before using the website's manual refresh buttons. Football's Vercel integration remains connected to the private Football repo.
 
 ## Workflows
 
