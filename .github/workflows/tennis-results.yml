@@ -1,0 +1,46 @@
+name: Tennis results and history
+on:
+  schedule:
+    - cron: '15 */4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: private-tennis-feed
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: ${{ vars.PUBLIC_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/tennis
+          ref: main
+          path: private
+          token: ${{ secrets.TENNIS_REPO_TOKEN }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Reconcile and publish results
+        working-directory: private
+        env:
+          TENNIS_RESULTS_API_KEY: ${{ secrets.TENNIS_RESULTS_API_KEY }}
+          TENNIS_RESULTS_API_KEYS: ${{ secrets.TENNIS_RESULTS_API_KEYS }}
+        run: |
+          set -e
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            if ! python history_tracker.py reconcile > .private-results.log 2>&1; then rm -f .private-results.log; echo "::error::Tennis result reconciliation failed; output suppressed."; exit 1; fi
+            rm -f .private-results.log
+            git add api/history.json
+            if git diff --cached --quiet; then echo "No tennis history changes."; exit 0; fi
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Update verified tennis results'
+            if git push origin HEAD:main; then echo "Tennis history published."; exit 0; fi
+            sleep 2
+          done
+          echo "::error::Could not publish tennis history."; exit 1
