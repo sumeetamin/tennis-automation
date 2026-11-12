@@ -33,7 +33,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             git fetch origin main
             git reset --hard origin/main
-            if ! python history_tracker.py reconcile > .private-results.log 2>&1; then rm -f .private-results.log; echo "::error::Tennis result reconciliation failed; output suppressed."; exit 1; fi
+            if ! python history_tracker.py reconcile > .private-results.log 2>&1; then grep '^History: .*source errors:' .private-results.log | tail -1 || true; rm -f .private-results.log; echo "::error::Tennis result reconciliation failed; sensitive output suppressed."; exit 1; fi
             rm -f .private-results.log
             git add api/history.json
             if git diff --cached --quiet; then echo "No tennis history changes."; exit 0; fi
