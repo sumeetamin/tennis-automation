@@ -40,5 +40,14 @@ jobs:
           git add models/football_1x2.joblib models/football_1x2.manifest.json reports/model_metrics.json reports/champions_model_metrics.json
           if git diff --cached --quiet; then echo "::error::Training produced no model changes."; exit 1; fi
           git commit -m 'Retrain production Football model'
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # Training may modify additional tracked artifacts that are not published here.
+          # Clear those local-only changes before syncing the committed outputs.
+          git reset --hard HEAD
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then echo "Football model published."; exit 0; fi
+            git rebase --abort >/dev/null 2>&1 || true
+            sleep 2
+          done
+          echo "::error::Could not publish the Football model."; exit 1
