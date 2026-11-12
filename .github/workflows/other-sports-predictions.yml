@@ -1,0 +1,94 @@
+name: Other sports predictions and odds
+on:
+  schedule:
+    - cron: '31 18 * * *' # 12:01 AM IST
+    - cron: '45 18 * * *' # 12:15 AM IST
+    - cron: '15 0,8,16 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: private-other-sports-feed
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: ${{ vars.PUBLIC_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/tennis
+          ref: main
+          path: private
+          token: ${{ secrets.TENNIS_REPO_TOKEN }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/nba-betting-data
+          ref: main
+          path: private/nba-data
+          token: ${{ secrets.NBA_REPOS_READ_TOKEN }}
+          lfs: true
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/nba-betting-model
+          ref: main
+          path: private/nba-model
+          token: ${{ secrets.NBA_REPOS_READ_TOKEN }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/elite-volleyball-dataset
+          ref: main
+          path: private/volleyball-data
+          lfs: true
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: sumeetamin/elite-volleyball-model
+          ref: main
+          path: private/volleyball-model
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install isolated model environments
+        working-directory: private
+        run: |
+          python -m venv .venv-nba
+          .venv-nba/bin/python -m pip install requests pandas pyarrow
+          .venv-nba/bin/python -m pip install -e ./nba-model
+          python -m venv .venv-volleyball
+          .venv-volleyball/bin/python -m pip install -e './volleyball-model[trees]' pandas beautifulsoup4
+          python -m pip install requests
+      - name: Refresh basketball, volleyball, and football odds
+        working-directory: private
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_API_KEYS: ${{ secrets.ODDS_API_KEYS }}
+          ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}
+          VOLLEYBALL_ODDS_BOOKMAKER: ${{ vars.VOLLEYBALL_ODDS_BOOKMAKER }}
+        run: |
+          set +e
+          .venv-nba/bin/python basketball_refresh.py > .nba.log 2>&1; nba=$?
+          .venv-volleyball/bin/python volleyball_refresh.py > .volleyball.log 2>&1; vb=$?
+          python publish_football_odds.py > .football.log 2>&1; football=$?
+          rm -f .nba.log .volleyball.log .football.log
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          [ "$nba" -eq 0 ] && python -m json.tool api/basketball_data.json >/dev/null && git add api/basketball_data.json api/basketball_history.json
+          [ "$vb" -eq 0 ] && python -m json.tool api/volleyball_data.json >/dev/null && python -m json.tool api/volleyball_history.json >/dev/null && git add api/volleyball_data.json api/volleyball_history.json
+          [ "$football" -eq 0 ] && python -m json.tool api/football_odds.json >/dev/null && git add api/football_odds.json
+          if git diff --cached --quiet; then echo "::error::No sport feed completed successfully."; exit 1; fi
+          git commit -m 'Refresh other sports feeds'
+          for attempt in 1 2 3 4 5; do
+            git rebase --abort >/dev/null 2>&1 || true
+            git fetch origin main
+            git rebase -X ours origin/main
+            if git push origin HEAD:main; then
+              [ "$nba" -eq 0 ] || echo "::error::Basketball refresh failed."
+              [ "$vb" -eq 0 ] || echo "::error::Volleyball refresh failed."
+              [ "$football" -eq 0 ] || echo "::error::Football odds refresh failed."
+              [ "$nba" -eq 0 ] && [ "$vb" -eq 0 ] && [ "$football" -eq 0 ] && exit 0 || exit 1
+            fi
+            sleep 2
+          done
+          echo "::error::Could not publish other sports feeds."; exit 1
