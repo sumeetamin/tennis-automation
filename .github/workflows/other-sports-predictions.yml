@@ -75,7 +75,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           [ "$nba" -eq 0 ] && python -m json.tool api/basketball_data.json >/dev/null && git add api/basketball_data.json api/basketball_history.json
-          [ "$vb" -eq 0 ] && python -m json.tool api/volleyball_data.json >/dev/null && python -m json.tool api/volleyball_history.json >/dev/null && git add api/volleyball_data.json api/volleyball_history.json
+          [ "$vb" -eq 0 ] && python -m json.tool api/volleyball_data.json >/dev/null && python -m json.tool api/volleyball_history.json >/dev/null && git add -f api/volleyball_data.json api/volleyball_history.json
           [ "$football" -eq 0 ] && python -m json.tool api/football_odds.json >/dev/null && git add api/football_odds.json
           if git diff --cached --quiet; then echo "::error::No sport feed completed successfully."; exit 1; fi
           git commit -m 'Refresh other sports feeds'
