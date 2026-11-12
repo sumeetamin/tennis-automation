@@ -1,35 +1,47 @@
 # Speed Runners — public automation
 
-This repository contains **workflow definitions only**. The sports code, models, datasets and generated feeds stay in the private `sumeetamin/tennis` repository.
+Public GitHub Actions runners for the private sports projects. This repo contains workflow definitions only; it does not store model code, datasets, predictions, or API keys.
 
 ## Data flow
 
-1. A scheduled/manual workflow checks out private `sumeetamin/tennis` using `TENNIS_REPO_TOKEN`.
-2. It runs the existing private scripts on GitHub-hosted Linux runners.
-3. The scripts publish only the generated JSON feeds back to the private repo.
-4. The Vercel app reads those feeds through its existing authenticated GitHub data route (`GITHUB_DATA_TOKEN` remains in Vercel).
+- Workflows check out the private source repos using Actions secrets, run their existing scripts, and commit generated feeds back to those private repos.
+- The tennis Vercel app reads current feed JSON through its authenticated GitHub data route. Vercel's `GITHUB_DATA_TOKEN` stays in Vercel.
+- Football writes the board/history to private `football-match-lab`; its Vercel project continues serving that project's feed.
+- No decrypted model, predictions, or API response is uploaded as a public artifact.
 
-No Vercel deploy hook is needed for feed updates: the Vercel API reads the current private feed when requested.
+## Secrets to add here
 
-## Configure before enabling
+Use **Settings → Secrets and variables → Actions → Secrets**. Re-enter the existing values privately; GitHub cannot copy secrets between repositories.
 
-Add these under **Settings → Secrets and variables → Actions → Secrets** in this repository. Re-enter the existing values privately; GitHub cannot copy secrets between repositories.
-
-- `TENNIS_REPO_TOKEN`: fine-grained PAT restricted to `sumeetamin/tennis`, Contents read/write. Used to fetch code and publish feed JSON.
-- `ODDS_API_KEYS` (and optional `ODDS_API_KEY`): Odds API key pool.
-- `TENNIS_RESULTS_API_KEYS` (and optional `TENNIS_RESULTS_API_KEY`): tennis results API key pool.
+- `TENNIS_REPO_TOKEN`: fine-grained PAT restricted to `sumeetamin/tennis`, Contents read/write.
+- `FOOTBALL_REPO_TOKEN`: fine-grained PAT restricted to `sumeetamin/football-match-lab`, Contents read/write.
+- `ODDS_API_KEYS` (optional `ODDS_API_KEY`): Odds API key pool.
+- `TENNIS_RESULTS_API_KEYS` (optional `TENNIS_RESULTS_API_KEY`): tennis results API key pool.
 - `NBA_REPOS_READ_TOKEN`: read-only access to `nba-betting-data` and `nba-betting-model`.
 - `MMA_REPOS_READ_TOKEN`: read-only access to `mma-dataset` and `MMA-`.
 - `ODDSPAPI_API_KEY`: volleyball odds key.
+- `APIFOOTBALL_KEY`: optional key for the weekly Football roster workflow.
+- `FOOTBALL_DATA_PERMISSION_REFERENCE`: optional, only for the manual restricted-market historical-data task.
 
-Optional Actions variable: `VOLLEYBALL_ODDS_BOOKMAKER`.
+Optional Actions variable: `VOLLEYBALL_ODDS_BOOKMAKER`. Keep `PUBLIC_RUNNER_ENABLED` unset until secrets are configured and you are ready to cut over.
 
-Add the secrets above, then disable the matching scheduled workflows in the private repo to prevent duplicate runs. Set Actions variable `PUBLIC_RUNNER_ENABLED` to `true`, manually run each workflow once, and verify its private feed update and the signed-in Vercel page. Keep the private workflows disabled after the checks pass.
+## Cutover
 
-## Security
+1. Add the secrets above.
+2. Disable the matching scheduled workflows in the private tennis and Football repos, to prevent duplicate runs.
+3. Set Actions variable `PUBLIC_RUNNER_ENABLED` to `true`.
+4. Manually run each sports workflow once. Check the private feed updates and the signed-in Vercel pages.
+5. Keep the old scheduled workflows disabled after verification.
 
-- Workflow files and run logs in this repository are public. They must never print picks, odds responses, private data, or secrets.
-- Secret-bearing workflows accept only schedule/manual triggers; they do not run on pull requests or forks.
-- Keep write access limited to the owner. Do not merge third-party workflow changes without reviewing them.
-- The workflow token can write feed JSON to the private tennis repository. A malicious workflow change could misuse any secret, so review every change before it runs.
-- This design protects the model/data source repository from public browsing; it cannot hide the automation logic or make public logs private.
+The existing website refresh buttons still point to their old workflow locations; they need a small route/token update before those buttons trigger these new workflows. Scheduled runs in this repo do not depend on that update.
+
+## Workflows
+
+Tennis predictions/results; basketball and volleyball boards/results; Football board/results and roster refresh; MMA board/history; hourly site health; manual Football model retraining, evaluation, and data maintenance.
+
+## Security and limits
+
+- Workflow YAML and GitHub Actions logs are public. Logs suppress private script output; never add a step that prints picks, odds payloads, private data, or secrets.
+- Secret-bearing workflows run only on schedules or manual dispatch—never pull requests/forks.
+- Keep write access limited to you and review every workflow change. A malicious workflow change could misuse its secrets.
+- Standard GitHub-hosted runners are free for public repositories. This does not make logs, workflow logic, or outputs public-safe by itself.
