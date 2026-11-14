@@ -41,12 +41,35 @@ jobs:
       - name: Install and run private MMA model
         working-directory: private
         run: |
+          show_failure_log() {
+            label="$1"
+            log="$2"
+            echo "::group::${label} failure details (last 80 lines; credentials redacted)"
+            if [ -f "$log" ]; then
+              python - "$log" <<'PY'
+          import pathlib, re, sys
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          for pattern, replacement in (
+              (r"(?i)(bearer\s+)[^\s]+", r"\1[REDACTED]"),
+              (r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b", "[REDACTED_TOKEN]"),
+              (r"\bgithub_pat_[A-Za-z0-9_]{20,}\b", "[REDACTED_TOKEN]"),
+              (r"(?i)([?&](?:token|api_key|apikey|key|authorization)=)[^&\s]+", r"\1[REDACTED]"),
+          ):
+              text = re.sub(pattern, replacement, text)
+          lines = text.splitlines()
+          print("\n".join(lines[-80:]) if lines else "(log was empty)")
+          PY
+            else
+              echo "Log file not found: $log"
+            fi
+            echo "::endgroup::"
+          }
           python -m pip install -r mma-model/requirements.txt requests
-          if ! python mma-data/scripts/build_ufc_snapshot.py > .mma-build.log 2>&1; then rm -f .mma-build.log; echo "::error::MMA data preparation failed; output suppressed."; exit 1; fi
+          if ! python mma-data/scripts/build_ufc_snapshot.py > .mma-build.log 2>&1; then show_failure_log "MMA data preparation" .mma-build.log; rm -f .mma-build.log; exit 1; fi
           rm -f .mma-build.log
-          if ! python mma-model/train.py --dataset mma-data --test-bouts 2500 > .mma-train.log 2>&1; then rm -f .mma-train.log; echo "::error::MMA model training failed; output suppressed."; exit 1; fi
+          if ! python mma-model/train.py --dataset mma-data --test-bouts 2500 > .mma-train.log 2>&1; then show_failure_log "MMA model training" .mma-train.log; rm -f .mma-train.log; exit 1; fi
           rm -f .mma-train.log
-          if ! python mma_refresh.py > .mma-refresh.log 2>&1; then rm -f .mma-refresh.log; echo "::error::MMA refresh failed; output suppressed."; exit 1; fi
+          if ! python mma_refresh.py > .mma-refresh.log 2>&1; then show_failure_log "MMA predictions refresh" .mma-refresh.log; rm -f .mma-refresh.log; exit 1; fi
           rm -f .mma-refresh.log
           python -m json.tool api/mma_data.json >/dev/null
           python -m json.tool api/mma_history.json >/dev/null
