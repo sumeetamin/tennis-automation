@@ -72,6 +72,7 @@ jobs:
           rm -f .mma-build.log
           if ! python mma-model/train.py --dataset mma-data --test-bouts 2500 > .mma-train.log 2>&1; then show_failure_log "MMA model training" .mma-train.log; rm -f .mma-train.log; exit 1; fi
           rm -f .mma-train.log
+          python -m pip install 'scikit-learn==1.8.0'
           if ! python mma_refresh.py > .mma-refresh.log 2>&1; then show_failure_log "MMA predictions refresh" .mma-refresh.log; rm -f .mma-refresh.log; exit 1; fi
           rm -f .mma-refresh.log
           python -m json.tool api/mma_data.json >/dev/null
