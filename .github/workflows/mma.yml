@@ -40,6 +40,9 @@ jobs:
           python-version: '3.11'
       - name: Install and run private MMA model
         working-directory: private
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_API_KEYS: ${{ secrets.ODDS_API_KEYS }}
         run: |
           show_failure_log() {
             label="$1"
